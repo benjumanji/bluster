@@ -42,6 +42,12 @@ impl Descriptor {
                         .data_mut::<GattDataType>(ctx.path())
                         .unwrap()
                         .get_descriptor();
+                    let sndr = ctx.message()
+                        .sender()
+                        .map(|x| {
+                            let cstring = x.clone().into_cstring();
+                            String::from_utf8_lossy(cstring.as_bytes()).into_owned()
+                        });
                     async move {
                         let event_sender = descriptor
                             .properties
@@ -53,6 +59,7 @@ impl Descriptor {
                             .sender()
                             .send(gatt::event::Event::ReadRequest(gatt::event::ReadRequest {
                                 offset,
+                                sender: sndr,
                                 response: sender,
                             }))
                             .await

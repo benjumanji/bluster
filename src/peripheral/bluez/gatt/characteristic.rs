@@ -76,11 +76,18 @@ impl Characteristic {
                 ("options",),
                 ("value",),
                 |mut ctx, cr, (options,): (OptionsMap,)| {
+                    println!("sender: {:?}", ctx.message().sender());
                     let offset = options.get("offset").and_then(RefArg::as_u64).unwrap_or(0) as u16;
                     let characteristic = cr
                         .data_mut::<GattDataType>(ctx.path())
                         .unwrap()
                         .get_characteristic();
+                    let sndr = ctx.message()
+                        .sender()
+                        .map(|x| {
+                            let cstring = x.clone().into_cstring();
+                            String::from_utf8_lossy(cstring.as_bytes()).into_owned()
+                        });
                     async move {
                         let event_sender = characteristic
                             .properties
@@ -92,6 +99,7 @@ impl Characteristic {
                             .sender()
                             .send(gatt::event::Event::ReadRequest(gatt::event::ReadRequest {
                                 offset,
+                                sender: sndr,
                                 response: sender,
                             }))
                             .await

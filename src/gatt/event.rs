@@ -14,6 +14,7 @@ pub enum Event {
 #[derive(Debug)]
 pub struct ReadRequest {
     pub offset: u16,
+    pub sender: Option<String>,
     pub response: ResponseSender,
 }
 
