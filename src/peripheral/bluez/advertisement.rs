@@ -123,7 +123,9 @@ impl Advertisement {
         let uuid = service_uuid.into();
         let data = data.into();
         self.service_data.lock().unwrap().as_mut().map(|m| {
+            println!("here! {:?}", m);
             m.insert(uuid, data);
+            println!("there! {:?}", m);
         });
     }
 
