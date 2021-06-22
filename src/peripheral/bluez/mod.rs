@@ -6,7 +6,7 @@ mod constants;
 mod error;
 mod gatt;
 
-use std::{string::ToString, sync::Arc};
+use std::{collections::HashMap, string::ToString, sync::Arc};
 use uuid::Uuid;
 
 use self::{adapter::Adapter, advertisement::Advertisement, connection::Connection, gatt::Gatt};
@@ -55,7 +55,7 @@ impl Peripheral {
         self.gatt.unregister().await
     }
 
-    pub async fn start_advertising(self: &Self, name: &str, uuids: &[Uuid]) -> Result<(), Error> {
+    pub async fn start_advertising(self: &Self, name: &str, uuids: &[Uuid], data: HashMap<Uuid, Vec<u8>>) -> Result<(), Error> {
         self.advertisement.add_name(name);
         self.advertisement.add_uuids(
             uuids
@@ -64,6 +64,10 @@ impl Peripheral {
                 .map(ToString::to_string)
                 .collect::<Vec<String>>(),
         );
+        
+        for (k,v) in data.into_iter() {
+            self.advertisement.add_service_data(k.to_string(), v);
+        }
 
         self.advertisement.register().await
     }

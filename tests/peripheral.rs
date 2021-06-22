@@ -1,10 +1,5 @@
 use futures::{channel::mpsc::channel, prelude::*};
-use std::{
-    collections::HashSet,
-    sync::{atomic, Arc, Mutex},
-    thread,
-    time::Duration,
-};
+use std::{collections::{HashMap, HashSet}, sync::{atomic, Arc, Mutex}, thread, time::Duration};
 use uuid::Uuid;
 
 use bluster::{
@@ -168,7 +163,7 @@ async fn it_advertises_gatt() {
         println!("Peripheral powered on");
         peripheral.register_gatt().await.unwrap();
         peripheral
-            .start_advertising(ADVERTISING_NAME, &[])
+            .start_advertising(ADVERTISING_NAME, &[], HashMap::new())
             .await
             .unwrap();
         println!("Peripheral started advertising");

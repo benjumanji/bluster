@@ -28,6 +28,7 @@ pub struct Advertisement {
     is_advertising: Arc<AtomicBool>,
     name: Arc<Mutex<Option<String>>>,
     uuids: Arc<Mutex<Option<Vec<String>>>>,
+    service_data: Arc<Mutex<Option<HashMap<String, Vec<u8>>>>>,
 }
 
 impl Advertisement {
@@ -41,6 +42,9 @@ impl Advertisement {
 
         let uuids = Arc::new(Mutex::new(None));
         let uuids_property = uuids.clone();
+
+        let service_data = Arc::new(Mutex::new(None));
+        let service_data_property = service_data.clone();
 
         let object_path: Path = format!("{}/advertisement{:04}", PATH_BASE, 0).into();
 
@@ -64,6 +68,13 @@ impl Advertisement {
                     .expect("Poisoned mutex")
                     .clone()
                     .unwrap_or_else(Vec::new))
+            });
+            b.property("ServiceData").get(move |_ctx, _cr| {
+                Ok(service_data_property
+                    .lock()
+                    .expect("Poisoned mutex")
+                    .clone()
+                    .unwrap_or_else(HashMap::new))
             });
         });
         let ifaces = [iface_token, tree.object_manager()];
@@ -92,6 +103,7 @@ impl Advertisement {
             is_advertising,
             name,
             uuids,
+            service_data,
         }
     }
 
@@ -101,6 +113,18 @@ impl Advertisement {
 
     pub fn add_uuids<T: Into<Vec<String>>>(self: &Self, uuids: T) {
         self.uuids.lock().unwrap().replace(uuids.into());
+    }
+
+    pub fn add_service_data(
+        self: &Self,
+        service_uuid: impl Into<String>,
+        data: impl Into<Vec<u8>>,
+    ) {
+        let uuid = service_uuid.into();
+        let data = data.into();
+        self.service_data.lock().unwrap().as_mut().map(|m| {
+            m.insert(uuid, data);
+        });
     }
 
     pub async fn register(self: &Self) -> Result<(), Error> {
