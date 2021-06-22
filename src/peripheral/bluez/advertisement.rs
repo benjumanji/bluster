@@ -122,11 +122,11 @@ impl Advertisement {
     ) {
         let uuid = service_uuid.into();
         let data = data.into();
-        self.service_data.lock().unwrap().as_mut().map(|m| {
-            println!("here! {:?}", m);
-            m.insert(uuid, data);
-            println!("there! {:?}", m);
-        });
+        let mut guard = self.service_data.lock().unwrap();
+        let m = guard.get_or_insert(HashMap::new());
+        println!("here! {:?}", m);
+        m.insert(uuid, data);
+        println!("there! {:?}", m);
     }
 
     pub async fn register(self: &Self) -> Result<(), Error> {
