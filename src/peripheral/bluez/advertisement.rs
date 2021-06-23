@@ -19,56 +19,6 @@ use super::{
 };
 use crate::Error;
 
-#[derive(Clone, Debug)]
-struct ServiceData(HashMap<String, Vec<u8>>);
-
-impl ServiceData {
-    fn new() -> Self {
-        ServiceData(HashMap::new())
-    }
-}
-
-impl dbus::arg::Arg for ServiceData {
-    const ARG_TYPE: dbus::arg::ArgType = dbus::arg::ArgType::Array;
-
-    fn signature() -> dbus::Signature<'static> {
-        dbus::Signature::from("a{sv}")
-    }
-}
-
-impl dbus::arg::RefArg for ServiceData {
-    fn arg_type(&self) -> dbus::arg::ArgType {
-        <Self as dbus::arg::Arg>::ARG_TYPE
-    }
-
-    fn signature(&self) -> dbus::Signature<'static> {
-        <Self as dbus::arg::Arg>::signature()
-    }
-
-    fn append(&self, iter: &mut dbus::arg::IterAppend) {
-        <Self as dbus::arg::Append>::append_by_ref(self, iter);
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any where Self: 'static {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any where Self: 'static {
-        self
-    }
-}
-
-impl dbus::arg::Append for ServiceData {
-    fn append_by_ref(&self, iter: &mut dbus::arg::IterAppend) {
-        let mut to_append = HashMap::new();
-        for (k,v) in self.0.iter() {
-            let sliced: &[u8] = &*v;
-            to_append.insert(&**k, Variant(sliced));
-        }
-        iter.append(to_append);
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Advertisement {
     connection: Arc<Connection>,
@@ -78,8 +28,7 @@ pub struct Advertisement {
     is_advertising: Arc<AtomicBool>,
     name: Arc<Mutex<Option<String>>>,
     uuids: Arc<Mutex<Option<Vec<String>>>>,
-    service_data: Arc<Mutex<Option<ServiceData>>>,
-    adv_data: Arc<Mutex<Option<HashMap<u8, Variant<Vec<u8>>>>>>,
+    manufacturer_data: Arc<Mutex<Option<HashMap<u16, Variant<Vec<u8>>>>>>,
 }
 
 impl Advertisement {
@@ -94,11 +43,8 @@ impl Advertisement {
         let uuids = Arc::new(Mutex::new(None));
         let uuids_property = uuids.clone();
 
-        let service_data = Arc::new(Mutex::new(None));
-        let service_data_property = service_data.clone();
-        
-        let adv_data = Arc::new(Mutex::new(None));
-        let adv_data_property = adv_data.clone();
+        let manufacturer_data = Arc::new(Mutex::new(None));
+        let manufacturer_data_property = manufacturer_data.clone();
 
         let object_path: Path = format!("{}/advertisement{:04}", PATH_BASE, 0).into();
 
@@ -123,15 +69,8 @@ impl Advertisement {
                     .clone()
                     .unwrap_or_else(Vec::new))
             });
-            b.property("ServiceData").get(move |_ctx, _cr| {
-                Ok(service_data_property
-                    .lock()
-                    .expect("Poisoned mutex")
-                    .clone()
-                    .unwrap_or_else(ServiceData::new))
-            });
-            b.property("Data").get(move |_ctx, _cr| {
-                Ok(adv_data_property
+            b.property("ManufacturerData").get(move |_ctx, _cr| {
+                Ok(manufacturer_data_property
                     .lock()
                     .expect("Poisoned mutex")
                     .clone()
@@ -164,8 +103,7 @@ impl Advertisement {
             is_advertising,
             name,
             uuids,
-            service_data,
-            adv_data,
+            manufacturer_data,
         }
     }
 
@@ -177,26 +115,9 @@ impl Advertisement {
         self.uuids.lock().unwrap().replace(uuids.into());
     }
 
-    pub fn add_service_data(
-        self: &Self,
-        service_uuid: impl Into<String>,
-        data: impl Into<Vec<u8>>,
-    ) {
-        let uuid = service_uuid.into();
-        let data = data.into();
-        let mut guard = self.service_data.lock().unwrap();
-        let m = guard.get_or_insert(ServiceData::new());
-        m.0.insert(uuid, data);
-    }
-
-    pub fn add_adv_data(
-        self: &Self,
-        adv_type: u8,
-        data: impl Into<Vec<u8>>,
-    ) {
-        let mut guard = self.adv_data.lock().unwrap();
-        let m = guard.get_or_insert(HashMap::new());
-        m.insert(adv_type, Variant(data.into()));
+    pub fn add_manufacturer_data<T: Into<Vec<u8>>>(&self, data: HashMap<u16, T>) {
+        let data = data.into_iter().map(|(k, v)| (k, Variant(v.into()))).collect();
+        self.manufacturer_data.lock().unwrap().replace(data);
     }
 
     pub async fn register(self: &Self) -> Result<(), Error> {
