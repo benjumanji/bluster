@@ -55,7 +55,7 @@ impl Peripheral {
         self.gatt.unregister().await
     }
 
-    pub async fn start_advertising(self: &Self, name: &str, uuids: &[Uuid], data: HashMap<impl ToString, Vec<u8>>) -> Result<(), Error> {
+    pub async fn start_advertising(self: &Self, name: &str, uuids: &[Uuid], service_data: HashMap<impl ToString, Vec<u8>>, adv_data: HashMap<u8, Vec<u8>>) -> Result<(), Error> {
         self.advertisement.add_name(name);
         self.advertisement.add_uuids(
             uuids
@@ -65,8 +65,12 @@ impl Peripheral {
                 .collect::<Vec<String>>(),
         );
         
-        for (k,v) in data.into_iter() {
+        for (k,v) in service_data.into_iter() {
             self.advertisement.add_service_data(k.to_string(), v);
+        }
+
+        for (k, v) in adv_data.into_iter() {
+            self.advertisement.add_adv_data(k, v);
         }
 
         self.advertisement.register().await

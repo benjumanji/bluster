@@ -79,6 +79,7 @@ pub struct Advertisement {
     name: Arc<Mutex<Option<String>>>,
     uuids: Arc<Mutex<Option<Vec<String>>>>,
     service_data: Arc<Mutex<Option<ServiceData>>>,
+    adv_data: Arc<Mutex<Option<HashMap<u8, Variant<Vec<u8>>>>>>,
 }
 
 impl Advertisement {
@@ -95,6 +96,9 @@ impl Advertisement {
 
         let service_data = Arc::new(Mutex::new(None));
         let service_data_property = service_data.clone();
+        
+        let adv_data = Arc::new(Mutex::new(None));
+        let adv_data_property = adv_data.clone();
 
         let object_path: Path = format!("{}/advertisement{:04}", PATH_BASE, 0).into();
 
@@ -126,6 +130,13 @@ impl Advertisement {
                     .clone()
                     .unwrap_or_else(ServiceData::new))
             });
+            b.property("Data").get(move |_ctx, _cr| {
+                Ok(adv_data_property
+                    .lock()
+                    .expect("Poisoned mutex")
+                    .clone()
+                    .unwrap_or_else(HashMap::new))
+            });
         });
         let ifaces = [iface_token, tree.object_manager()];
         tree.insert(object_path.clone(), &ifaces, ());
@@ -154,6 +165,7 @@ impl Advertisement {
             name,
             uuids,
             service_data,
+            adv_data,
         }
     }
 
@@ -174,9 +186,17 @@ impl Advertisement {
         let data = data.into();
         let mut guard = self.service_data.lock().unwrap();
         let m = guard.get_or_insert(ServiceData::new());
-        println!("here! {:?}", m);
         m.0.insert(uuid, data);
-        println!("there! {:?}", m);
+    }
+
+    pub fn add_adv_data(
+        self: &Self,
+        adv_type: u8,
+        data: impl Into<Vec<u8>>,
+    ) {
+        let mut guard = self.adv_data.lock().unwrap();
+        let m = guard.get_or_insert(HashMap::new());
+        m.insert(adv_type, Variant(data.into()));
     }
 
     pub async fn register(self: &Self) -> Result<(), Error> {
