@@ -19,6 +19,56 @@ use super::{
 };
 use crate::Error;
 
+#[derive(Clone, Debug)]
+struct ServiceData(HashMap<String, Vec<u8>>);
+
+impl ServiceData {
+    fn new() -> Self {
+        ServiceData(HashMap::new())
+    }
+}
+
+impl dbus::arg::Arg for ServiceData {
+    const ARG_TYPE: dbus::arg::ArgType = dbus::arg::ArgType::Array;
+
+    fn signature() -> dbus::Signature<'static> {
+        dbus::Signature::from("a{sv}")
+    }
+}
+
+impl dbus::arg::RefArg for ServiceData {
+    fn arg_type(&self) -> dbus::arg::ArgType {
+        <Self as dbus::arg::Arg>::ARG_TYPE
+    }
+
+    fn signature(&self) -> dbus::Signature<'static> {
+        <Self as dbus::arg::Arg>::signature()
+    }
+
+    fn append(&self, iter: &mut dbus::arg::IterAppend) {
+        <Self as dbus::arg::Append>::append_by_ref(self, iter);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any where Self: 'static {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any where Self: 'static {
+        self
+    }
+}
+
+impl dbus::arg::Append for ServiceData {
+    fn append_by_ref(&self, iter: &mut dbus::arg::IterAppend) {
+        let mut to_append = HashMap::new();
+        for (k,v) in self.0.iter() {
+            let sliced: &[u8] = &*v;
+            to_append.insert(&**k, Variant(sliced));
+        }
+        iter.append(to_append);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Advertisement {
     connection: Arc<Connection>,
@@ -28,7 +78,7 @@ pub struct Advertisement {
     is_advertising: Arc<AtomicBool>,
     name: Arc<Mutex<Option<String>>>,
     uuids: Arc<Mutex<Option<Vec<String>>>>,
-    service_data: Arc<Mutex<Option<HashMap<String, Vec<u8>>>>>,
+    service_data: Arc<Mutex<Option<ServiceData>>>,
 }
 
 impl Advertisement {
@@ -74,7 +124,7 @@ impl Advertisement {
                     .lock()
                     .expect("Poisoned mutex")
                     .clone()
-                    .unwrap_or_else(HashMap::new))
+                    .unwrap_or_else(ServiceData::new))
             });
         });
         let ifaces = [iface_token, tree.object_manager()];
@@ -123,9 +173,9 @@ impl Advertisement {
         let uuid = service_uuid.into();
         let data = data.into();
         let mut guard = self.service_data.lock().unwrap();
-        let m = guard.get_or_insert(HashMap::new());
+        let m = guard.get_or_insert(ServiceData::new());
         println!("here! {:?}", m);
-        m.insert(uuid, data);
+        m.0.insert(uuid, data);
         println!("there! {:?}", m);
     }
 
