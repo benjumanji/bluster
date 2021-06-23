@@ -55,7 +55,7 @@ impl Peripheral {
         self.gatt.unregister().await
     }
 
-    pub async fn start_advertising(self: &Self, name: &str, uuids: &[Uuid], data: HashMap<Uuid, Vec<u8>>) -> Result<(), Error> {
+    pub async fn start_advertising(self: &Self, name: &str, uuids: &[Uuid], data: HashMap<impl ToString, Vec<u8>>) -> Result<(), Error> {
         self.advertisement.add_name(name);
         self.advertisement.add_uuids(
             uuids
